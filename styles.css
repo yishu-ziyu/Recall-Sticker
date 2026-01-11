@@ -1,0 +1,145 @@
+/* --- Recall Sticker Core Styles --- */
+
+.recall-sticker-hidden {
+  background-color: #4b5563;
+  background-image: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+  color: transparent !important;
+  border-radius: 4px;
+  padding: 2px 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  user-select: none;
+  letter-spacing: 2px;
+  filter: blur(4px);
+}
+
+.recall-sticker-hidden:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.recall-sticker-hidden:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+  opacity: 0.6;
+  filter: blur(0px);
+}
+
+.recall-sticker-revealed {
+  background-color: transparent;
+  color: inherit !important;
+  box-shadow: none;
+  transform: none;
+  text-decoration: underline;
+  text-decoration-color: #9ca3af;
+  text-decoration-style: dotted;
+  transition: all 0.3s ease;
+}
+
+/* --- Global Controls: Peek Mode (偷看模式) --- */
+/* 当 body 有这个 class 时，所有隐藏的贴纸变半透明 */
+body.recall-peek-active .recall-sticker-hidden {
+  opacity: 0.2;
+  /* 变得很淡，可以看清下面的字 */
+  color: inherit !important;
+  /* 文字显现 */
+  background: rgba(0, 0, 0, 0.1);
+  /* 背景淡化 */
+  box-shadow: none;
+  transform: none;
+}
+
+/* --- Global Controls: Disabled Mode (停用模式) --- */
+body.recall-disabled .recall-sticker-hidden {
+  background: transparent !important;
+  color: inherit !important;
+  box-shadow: none;
+  pointer-events: none;
+  /* 禁用点击 */
+  text-decoration: none;
+}
+
+/* --- Floating Button --- */
+#recall-toggle-btn {
+  position: absolute;
+  z-index: 10000;
+  background: #1f2937;
+  color: #f3f4f6;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-family: sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: popIn 0.2s ease-out;
+}
+
+#recall-toggle-btn:hover {
+  background: #111827;
+  transform: scale(1.1);
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* --- Dashboard (Control Panel) --- */
+#recall-dashboard {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 2147483647;
+  /* Max z-index */
+  background: rgba(31, 41, 55, 0.95);
+  /* Dark background */
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(4px);
+  transition: opacity 0.3s;
+}
+
+#recall-dashboard:hover {
+  opacity: 1;
+}
+
+.recall-status {
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+.recall-actions button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recall-actions button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
