@@ -5,8 +5,12 @@
   "description": "选中文字，点击浮标，生成遮挡贴纸。",
   "permissions": [
     "activeTab",
-    "storage"
+    "storage",
+    "sidePanel"
   ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
   "content_scripts": [
     {
       "matches": [

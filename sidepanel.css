@@ -1,0 +1,124 @@
+/* Side Panel Styles */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: #f3f4f6; /* Gray-100 */
+  color: #1f2937; /* Gray-800 */
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+#refresh-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+#refresh-btn:hover {
+  background-color: #f3f4f6;
+}
+
+#stats-bar {
+  padding: 8px 16px;
+  font-size: 12px;
+  color: #6b7280;
+  background-color: #f9fafb;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+#sticker-list {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sticker-card {
+  background-color: #fff;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.sticker-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-color: #e5e7eb;
+}
+
+.card-source {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.card-favicon {
+  width: 12px;
+  height: 12px;
+}
+
+.card-source-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.card-context {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #4b5563;
+}
+
+.card-cloze {
+  display: inline-block;
+  background-color: #e5e7eb;
+  color: transparent;
+  padding: 0 4px;
+  border-radius: 4px;
+  min-width: 20px;
+  user-select: none;
+  transition: all 0.2s;
+  cursor: help;
+}
+
+.card-cloze.revealed {
+  background-color: #dbeafe; /* Blue-100 */
+  color: #1e40af; /* Blue-800 */
+  text-decoration: underline;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #9ca3af;
+  font-size: 14px;
+}

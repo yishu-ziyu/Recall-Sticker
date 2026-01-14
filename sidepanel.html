@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Recall Review Center</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Recall Review</h1>
+      <button
+        id="refresh-btn"
+        title="Refresh List"
+        aria-label="Refresh Stickers"
+      >
+        🔄
+      </button>
+    </header>
+
+    <div id="stats-bar">
+      <span id="sticker-count">0</span> stickers collected
+    </div>
+
+    <main id="sticker-list">
+      <!-- Stickers will be injected here -->
+      <div class="empty-state">
+        <p>No stickers found yet.</p>
+        <p>Select text on web pages to start collecting!</p>
+      </div>
+    </main>
+
+    <script src="sidepanel.js"></script>
+  </body>
+</html>
