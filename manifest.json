@@ -11,6 +11,12 @@
   "side_panel": {
     "default_path": "sidepanel.html"
   },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Open Review Center"
+  },
   "content_scripts": [
     {
       "matches": [

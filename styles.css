@@ -105,17 +105,57 @@ body.recall-disabled .recall-sticker-hidden {
   background: rgba(31, 41, 55, 0.95);
   /* Dark background */
   color: #fff;
+  /* Minimized State */
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 50%;
+  overflow: hidden;
+  opacity: 0.4;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: #374151; /* Dark Gray */
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+#recall-dashboard::before {
+  content: "📝"; /* Fallback Icon */
+  font-size: 16px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 1;
+  transition: opacity 0.2s;
+}
+
+#recall-dashboard:hover::before {
+  opacity: 0; /* Hide icon on hover */
+}
+
+#recall-dashboard:hover {
+  width: auto;
+  height: auto;
   padding: 8px 12px;
   border-radius: 8px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(4px);
-  transition: opacity 0.3s;
+  opacity: 1;
+  background: rgba(31, 41, 55, 0.95);
+  justify-content: flex-start;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+}
+
+.recall-status, .recall-actions {
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+  transition: opacity 0.2s;
+  display: flex !important; /* Force flex to keep layout */
+}
+
+#recall-dashboard:hover .recall-status,
+#recall-dashboard:hover .recall-actions {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 #recall-dashboard:hover {
@@ -142,4 +182,38 @@ body.recall-disabled .recall-sticker-hidden {
 
 .recall-actions button:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+/* --- Toast Notification --- */
+.recall-toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  background: rgba(31, 41, 55, 0.95);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 8px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+  z-index: 2147483647;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.recall-toast.visible {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+.recall-toast.error {
+  border-left: 4px solid #ef4444; /* Red for error */
+}
+
+.recall-toast.info {
+  border-left: 4px solid #3b82f6; /* Blue for info */
 }

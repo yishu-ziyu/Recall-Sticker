@@ -2,7 +2,7 @@
   "use strict";
 
   const Config = {
-    PREFIX_SUFFIX_LENGTH: 20,
+    PREFIX_SUFFIX_LENGTH: 100,
     STICKER_CLASSES: {
       HIDDEN: "recall-sticker-hidden",
       REVEALED: "recall-sticker-revealed",
@@ -33,7 +33,7 @@
       });
     },
 
-    saveSticker(text, prefix, suffix) {
+    saveSticker(text, prefix, suffix, context = "") {
       const url = this.getUrlKey();
       this.getStickers((stickers) => {
         const isDuplicate = stickers.some(
@@ -44,7 +44,9 @@
             text,
             prefix,
             suffix,
+            context,
             timestamp: Date.now(),
+            sourceUrl: window.location.href,
           });
           chrome.storage.local.set({ [url]: stickers });
         }
@@ -80,16 +82,41 @@
     initDashboard() {
       const dashboard = document.createElement("div");
       dashboard.id = "recall-dashboard";
-      dashboard.innerHTML = `
-        <div class="recall-status">
-          <span id="recall-count">0</span> Stickers
-        </div>
-        <div class="recall-actions">
-          <button id="recall-toggle-mode" title="Eye Shield: On/Off">👁️</button>
-          <button id="recall-reset-btn" title="Refresh Session (Re-hide All)">🔄</button>
-          <button id="recall-export-btn" title="Export to Anki">📥</button>
-        </div>
-      `;
+
+      // Status
+      const statusDiv = document.createElement("div");
+      statusDiv.className = "recall-status";
+      const countSpan = document.createElement("span");
+      countSpan.id = "recall-count";
+      countSpan.innerText = "0";
+      statusDiv.appendChild(countSpan);
+      statusDiv.append(" Stickers");
+
+      // Actions
+      const actionsDiv = document.createElement("div");
+      actionsDiv.className = "recall-actions";
+
+      const toggleBtn = document.createElement("button");
+      toggleBtn.id = "recall-toggle-mode";
+      toggleBtn.title = "Eye Shield: On/Off";
+      toggleBtn.innerText = "👁️";
+
+      const resetBtn = document.createElement("button");
+      resetBtn.id = "recall-reset-btn";
+      resetBtn.title = "Refresh Session (Re-hide All)";
+      resetBtn.innerText = "🔄";
+
+      const exportBtn = document.createElement("button");
+      exportBtn.id = "recall-export-btn";
+      exportBtn.title = "Export to Anki";
+      exportBtn.innerText = "📥";
+
+      actionsDiv.appendChild(toggleBtn);
+      actionsDiv.appendChild(resetBtn);
+      actionsDiv.appendChild(exportBtn);
+
+      dashboard.appendChild(statusDiv);
+      dashboard.appendChild(actionsDiv);
       document.body.appendChild(dashboard);
     },
 
@@ -126,30 +153,34 @@
     },
 
     bindDashboardEvents() {
-      document
-        .querySelector(Config.SELECTORS.TOGGLE_MODE)
-        .addEventListener("click", () => {
+      const toggleModeBtn = document.querySelector(Config.SELECTORS.TOGGLE_MODE);
+      if (toggleModeBtn) {
+        toggleModeBtn.addEventListener("click", () => {
           App.toggleExtension();
         });
+      }
 
-      document
-        .querySelector(Config.SELECTORS.EXPORT_BTN)
-        .addEventListener("click", () => {
+      const exportBtn = document.querySelector(Config.SELECTORS.EXPORT_BTN);
+      if (exportBtn) {
+        exportBtn.addEventListener("click", () => {
           App.exportToAnki();
         });
+      }
 
-      document
-        .querySelector(Config.SELECTORS.RESET_BTN)
-        .addEventListener("click", () => {
+      const resetBtn = document.querySelector(Config.SELECTORS.RESET_BTN);
+      if (resetBtn) {
+        resetBtn.addEventListener("click", () => {
           App.resetSession();
         });
+      }
 
-      document
-        .querySelector(Config.SELECTORS.TOGGLE_BTN)
-        .addEventListener("mousedown", (e) => {
+      const toggleBtn = document.querySelector(Config.SELECTORS.TOGGLE_BTN);
+      if (toggleBtn) {
+        toggleBtn.addEventListener("mousedown", (e) => {
           e.preventDefault();
           App.handleCreateSticker();
         });
+      }
 
       document.addEventListener("mousedown", (e) => {
         if (this._btnTimeout) clearTimeout(this._btnTimeout);
@@ -205,15 +236,44 @@
     },
 
     findRangeByContext(text, prefix, suffix) {
+      if (!text) return null;
+      
       const walker = document.createTreeWalker(
         document.body,
         NodeFilter.SHOW_TEXT
       );
       let node;
+      
       while ((node = walker.nextNode())) {
         const nodeText = node.textContent;
-        const textIndex = nodeText.indexOf(text);
-        if (textIndex !== -1) {
+        let searchIndex = 0;
+        let textIndex;
+
+        // Find all occurrences in this node
+        while ((textIndex = nodeText.indexOf(text, searchIndex)) !== -1) {
+          searchIndex = textIndex + 1;
+
+          // 1. Verify Prefix
+          const rangeBefore = document.createRange();
+          rangeBefore.selectNodeContents(document.body);
+          rangeBefore.setEnd(node, textIndex);
+          const textBefore = rangeBefore.toString();
+
+          if (!textBefore.endsWith(prefix)) {
+            continue;
+          }
+
+          // 2. Verify Suffix
+          const rangeAfter = document.createRange();
+          rangeAfter.selectNodeContents(document.body);
+          rangeAfter.setStart(node, textIndex + text.length);
+          const textAfter = rangeAfter.toString();
+
+          if (!textAfter.startsWith(suffix)) {
+            continue;
+          }
+
+          // 3. Match Found
           const range = document.createRange();
           range.setStart(node, textIndex);
           range.setEnd(node, textIndex + text.length);
@@ -313,6 +373,26 @@
       link.click();
       document.body.removeChild(link);
     },
+
+    showToast(message, type = "info") {
+      const existingToast = document.querySelector(".recall-toast");
+      if (existingToast) existingToast.remove();
+
+      const toast = document.createElement("div");
+      toast.className = `recall-toast ${type}`;
+      toast.innerText = message;
+      document.body.appendChild(toast);
+
+      // Force reflow
+      toast.offsetHeight;
+
+      toast.classList.add("visible");
+
+      setTimeout(() => {
+        toast.classList.remove("visible");
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    },
   };
 
   const App = {
@@ -356,28 +436,39 @@
       const text = range.toString().trim();
       if (text.length === 0) return;
 
-      const startOffset = range.startOffset;
-      const endOffset = range.endOffset;
-      const fullText = range.startContainer.textContent || "";
-      const prefix = fullText.substring(
-        Math.max(0, startOffset - Config.PREFIX_SUFFIX_LENGTH),
-        startOffset
-      );
-      const suffix = fullText.substring(
-        endOffset,
-        Math.min(fullText.length, endOffset + Config.PREFIX_SUFFIX_LENGTH)
-      );
-
       try {
         const wrapper = DOMService.wrapRange(range);
+        
+        // --- Enhanced Context Capture ---
+        // Capture context relative to the block to span across tags (e.g. <b>, <i>)
+        const block = wrapper.parentElement; 
+        // Create range for prefix (text before wrapper in the block)
+        const prefixRange = document.createRange();
+        prefixRange.setStart(block, 0);
+        prefixRange.setEndBefore(wrapper);
+        const prefix = prefixRange.toString().slice(-Config.PREFIX_SUFFIX_LENGTH);
+
+        // Create range for suffix (text after wrapper in the block)
+        const suffixRange = document.createRange();
+        suffixRange.setStartAfter(wrapper);
+        suffixRange.setEnd(block, block.childNodes.length);
+        const suffix = suffixRange.toString().slice(0, Config.PREFIX_SUFFIX_LENGTH);
+        // --------------------------------
+
         this.bindStickerInteractions(wrapper, text, prefix, suffix);
         window.getSelection().removeAllRanges();
-        document.querySelector(Config.SELECTORS.TOGGLE_BTN).style.display =
-          "none";
-        StorageService.saveSticker(text, prefix, suffix);
+        
+        const toggleBtn = document.querySelector(Config.SELECTORS.TOGGLE_BTN);
+        if (toggleBtn) toggleBtn.style.display = "none";
+
+        // Generate Anki-style Smart Context (Full Sentence with {{c1::...}})
+        const fullContext = DOMService.getExportContext(wrapper);
+
+        StorageService.saveSticker(text, prefix, suffix, fullContext);
         DOMService.updateDashboardCount();
       } catch (err) {
         console.warn("Recall Sticker: Complex implementation error", err);
+        DOMService.showToast("⚠️ 仅支持在同一段落内创建贴纸 (跨节点选择暂不支持)", "error");
       }
     },
 
@@ -497,5 +588,9 @@
     },
   };
 
-  window.addEventListener("load", () => App.init());
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => App.init());
+  } else {
+    App.init();
+  }
 })();
