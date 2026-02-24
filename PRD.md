@@ -4,81 +4,85 @@
 | -------------- | ------------------------------- |
 | **项目名称**   | Recall Sticker (网页记忆遮挡贴) |
 | **版本号**     | v1.0.0 (MVP)                    |
-| **状态**       | **开发中 (进行中)**             |
+| **状态**       | **已发布**                      |
 | **文档负责人** | 奕枢 / 子羽                     |
 
-## 1. 产品概述 (Overview)
+---
 
-**核心价值**：通过“原地遮挡（In-Situ Masking）”和“主动回想（Active Recall）”机制，帮助用户在浏览网页时即时进行记忆强化。
-**交付形态**：Chrome 浏览器扩展（Manifest V3），配合 Side Panel 侧边栏使用。
+## 1. 问题定义 (Problem Definition)
 
-## 2. 核心功能逻辑 (Functional Logic)
+> **"Spend more time on the problem than the solution."**
+
+### 1.1 挣扎时刻 (The Struggling Moment)
+
+用户在深度阅读长文章、学术论文或技术文档时，习惯性地使用荧光笔（Highlight）工具高亮重点。但高亮只是一种**“我知道了”的错觉（Illusion of Competence）**。
+当他们几天后再看这篇文章时，高亮的文本直接可见，没有经历大脑提取信息的痛苦过程，导致核心概念根本没有被内化和记住。
+如果他们使用现在的抽卡记忆软件（如 Anki），则需要离开当前阅读上下文，打断心流，且脱离了原文语境。
+
+### 1.2 为什么现有的方案不够好？
+
+- **传统网页高亮类插件**：只满足标注重心，不提供强化记忆的回放测试（Active Recall）机制。
+- **独立的抽卡APP（Anki/Quizlet）**：脱离了原文语境，且录入成本极高。
+
+---
+
+## 2. 定位与受众 (Positioning & Messaging)
+
+> **"Positioning dictates everything."**
+
+### 2.1 竞争替代品 (Competitive Alternative)
+
+用户过去是怎么做的：用 Notion Web Clipper 剪藏后吃灰，或者边看网页边开着纯文本编辑器做笔记。
+**我们明确反对的目标：** 脱离上下文的、高摩擦力的知识管理。
+
+### 2.2 核心差异化价值 (Differentiated Value)
+
+**"In-Situ Active Recall" (原地主动回忆)**。
+这不是一个高亮工具，而是一个**能在原地自动生成填空题的记忆外脑**。
+
+### 2.3 目标受众 (Target Audience)
+
+- 准备考试/面试的终身学习者。
+- 大量阅读硬核外文/学术文章的研究人员。
+- 需要快速记住专业术语、经济数据的知识工作者。
+
+---
+
+## 3. 核心功能逻辑 (Functional Logic)
 
 ### F1. 贴纸创建 (Sticker Creation)
 
-- **[P0] 触发条件**：
-  - 用户选中文本且字符数 > 0。
-  - **限制**：当前 MVP 版本仅支持**单一样式块**内的文本选择。
-  - **异常处理**：若用户跨越了 DOM 节点（例如跨了两个 `<p>` 标签）进行选择，系统将弹出 Toast 提示“⚠️ 仅支持在同一段落内创建贴纸”，明确告知用户不支持跨节点。
+- **交互路径**：选中网页中任意文本 -> 自动在选区覆盖一张模糊贴纸（`filter: blur` + 透明文字）。
+- **极简体验**：不打断心流，零弹窗。
+- **边界规避**：若用户跨越 DOM 节点（如跨段落）高亮，通过 Toast 温和提示“⚠️ 仅支持在同一段落内创建贴纸”，避免结构崩溃。
 
-- **[P0] 样式应用**：
-  - 在选区外包裹 `span.recall-sticker-hidden`。
-  - 应用模糊滤镜 `filter: blur(4px)` 和透明文字 `color: transparent`。
+### F2. 记忆自测交互 (Active Recall Interaction)
 
-- **[P1] 数据构造**：
-  - 保存对象需包含：`text` (内容), `prefix` (前100字符，用于精确定位), `suffix` (后100字符，用于精确定位), `timestamp`，`context` (用于Anki导出)。
+- **揭露模式**：点击贴纸，或用 `Tab` 选择后按 `Space/Enter`，贴纸变为透明并显示下划线，用户核对自己的记忆是否准确。
+- **全局偷看模式 (Peek Mode)**：按住 `Alt/Option`，所有贴纸透明度降为 0.2，方便在整体回顾时核对全文本。
+- **删除体验**：右键点击即可移除。
 
-### F2. 贴纸交互 (Interaction)
+### F3. 持久化与抗干扰定位 (Persistence & Robust Alignment)
 
-- **[P0] 状态切换**：
-  - 点击贴纸：在 `hidden` (模糊) 和 `revealed` (下划线/可见) 之间切换。
-  - 键盘操作：`Enter` 或 `Space` 键触发展开/隐藏（需确保 `span` 有 `tabindex="0"`）。
+- **本地至上**：使用 `chrome.storage.local` 进行数据存储，无需登录，隐私绝对安全。
+- **智能对齐算法**：单靠选取文本无法解决“页面中出现多个相同词语”的问题。系统必须存储 `[Prefix 100 char]` + `Target` + `[Suffix 100 char]`。页面重新加载时，通过前后文特征匹配，精准找到那一个特定的单词并贴上贴纸。
 
-- **[P1] 偷看模式 (Peek Mode)**：
-  - 按住 `Alt/Option` 键：全局添加 `body.recall-peek-active` 类，所有贴纸透明度降为 0.2，允许快速浏览内容。
+### F4. 侧边栏与复习闭环 (Side Panel & Export)
 
-- **[P1] 删除**：
-  - 右键点击贴纸 -> 弹出原生确认框 `confirm` -> 确认后移除 DOM 并清理 Storage。
+- **时间线沉淀**：Chrome Side Panel 倒序展现所有创建过的贴纸及其所在原域名。
+- **一键跳回**：利用 Chrome Text Fragments (`#:~:text=`) 协议，点击侧边栏卡片直接跳转到网页原位置并高亮。
+- **Anki 导出通道**：智能向外扩张抓取标点符号（`.!?。！？`），构建完整的带语境抽卡填空题 `PreText {{c1::StickerText}} PostText`。
 
-### F3. 持久化与恢复 (Persistence & Restore)
+---
 
-- **[P0] 存储结构**：
-  - Key: `window.location.origin + window.location.pathname`（忽略 query 参数）。
+## 4. 衡量指标 (North Star Metrics)
 
-- **[P0] 页面加载恢复**：
-  - 触发时机：`window.load` 后延迟 1000ms 执行（后续需优化为 MutationObserver）。
-  - **定位逻辑**：利用 Prefix 和 Suffix 校验上下文，确保定位唯一性。即使页面上有重复单词，也能精准还原到创建时的位置。
+- **激活指标**：每个安装用户首日生成的贴纸数。
+- **留存指标**：每周至少点击（揭露）过一次贴纸的活跃用户比例（复习率）。
 
-### F4. 侧边栏与导航 (Side Panel)
+---
 
-- **[P1] 列表渲染**：
-  - 按时间倒序展示所有贴纸。
-  - 展示来源域名 (Hostname) 和上下文预览。
+## 5. 待办与演进 (Future Roadmap)
 
-- **[P0] 点击跳转**：
-  - 利用 Chrome Text Fragments 协议构造 URL：`#:~:text=[prefix-,]textStart[,textEnd][,-suffix]`。
-  - 交互：点击卡片 -> 新开标签页或跳转到已有标签页并滚动到目标位置。
-
-### F5. 智能导出 (Anki Export)
-
-- **[P2] 挖空上下文抓取**：
-  - 系统向前后寻找最近的标点符号（`.!?。！？`）截取完整句子。
-  - 输出格式：`PreText {{c1::StickerText}} PostText`。
-  - 标签生成：`RecallSticker` + `PageTitle`。
-
-## 3. 已修复缺陷 (Fixed Gaps)
-
-### Gap 1: 定位算法失效风险 (Critical) - FIXED
-
-- **状态**: 已修复
-- **方案**: 重写 `findRangeByContext`，引入 `prefix` 和 `suffix` 严格校验，确保在重复文本中能唯一匹配。
-
-### Gap 2: 跨节点崩溃风险 (Major) - FIXED
-
-- **状态**: 已修复
-- **方案**: 在 `handleCreateSticker` 捕获异常，并通过 `showToast` 提供明确的 UI 错误提示。
-
-### Gap 3: 动态页面加载问题 (Minor) - PENDING
-
-- **状态**: 待优化
-- **方案**: 计划引入 `MutationObserver` 替代硬编码 `setTimeout`。
+- **P1**：将页面恢复逻辑由定时加载 `setTimeout` 升级为 `MutationObserver` 以适应 SPA 应用。
+- **P2**：支持跨节点区域的遮挡（如遮挡图片或长代码块）。
