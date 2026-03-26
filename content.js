@@ -15,7 +15,8 @@
       RESET_BTN: "#recall-reset-btn",
       EXPORT_BTN: "#recall-export-btn",
     },
-    LOAD_DELAY_MS: 1000,
+    INITIAL_LOAD_DELAY_MS: 600,
+    MUTATION_RESTORE_DEBOUNCE_MS: 500,
     EXPORT_FILENAME_PREFIX: "recall-export-full-",
   };
 
@@ -62,6 +63,10 @@
         );
         chrome.storage.local.set({ [url]: newStickers });
       });
+    },
+
+    getStickerKey(text, prefix, suffix) {
+      return `${text}::${prefix}::${suffix}`;
     },
   };
 
@@ -231,6 +236,7 @@
       wrapper.classList.add(Config.STICKER_CLASSES.HIDDEN);
       wrapper.setAttribute("tabindex", "0"); // Enable keyboard focus
       wrapper.dataset.stickerText = range.toString();
+      wrapper.dataset.recallStickerWrapped = "1";
       range.surroundContents(wrapper);
       return wrapper;
     },
@@ -398,10 +404,19 @@
   const App = {
     _isExtensionEnabled: true,
     _isPeekMode: false,
+    _restoredKeys: new Set(),
+    _mutationRestoreTimer: null,
+    _lastKnownUrlKey: null,
 
     init() {
       DOMService.initUI();
-      setTimeout(() => this.restoreStickers(), Config.LOAD_DELAY_MS);
+      this._lastKnownUrlKey = StorageService.getUrlKey();
+      setTimeout(
+        () => this.restoreStickers(),
+        Config.INITIAL_LOAD_DELAY_MS
+      );
+      this.bindMutationAutoRestore();
+      this.bindSpaNavigationListeners();
     },
 
     isExtensionEnabled() {
@@ -465,6 +480,7 @@
         const fullContext = DOMService.getExportContext(wrapper);
 
         StorageService.saveSticker(text, prefix, suffix, fullContext);
+        this._restoredKeys.add(StorageService.getStickerKey(text, prefix, suffix));
         DOMService.updateDashboardCount();
       } catch (err) {
         console.warn("Recall Sticker: Complex implementation error", err);
@@ -503,16 +519,31 @@
     },
 
     restoreStickers() {
+      this._lastKnownUrlKey = StorageService.getUrlKey();
       StorageService.getStickers((stickers) => {
         if (!stickers || stickers.length === 0) return;
 
         stickers.forEach((data) => {
+          const stickerKey = StorageService.getStickerKey(
+            data.text,
+            data.prefix,
+            data.suffix
+          );
+          if (this._restoredKeys.has(stickerKey)) return;
+
           const range = DOMService.findRangeByContext(
             data.text,
             data.prefix,
             data.suffix
           );
           if (!range) return;
+          if (
+            range.startContainer.parentElement &&
+            range.startContainer.parentElement.dataset &&
+            range.startContainer.parentElement.dataset.recallStickerWrapped === "1"
+          ) {
+            return;
+          }
 
           try {
             const wrapper = DOMService.wrapRange(range);
@@ -522,11 +553,61 @@
               data.prefix,
               data.suffix
             );
+            this._restoredKeys.add(stickerKey);
             DOMService.updateDashboardCount();
           } catch (err) {
             console.warn("Recall Sticker: Restore error", err);
           }
         });
+      });
+    },
+
+    bindMutationAutoRestore() {
+      const observer = new MutationObserver(() => {
+        if (!this._isExtensionEnabled) return;
+        if (this._mutationRestoreTimer) clearTimeout(this._mutationRestoreTimer);
+        this._mutationRestoreTimer = setTimeout(() => {
+          if (StorageService.getUrlKey() !== this._lastKnownUrlKey) return;
+          this.restoreStickers();
+        }, Config.MUTATION_RESTORE_DEBOUNCE_MS);
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+    },
+
+    bindSpaNavigationListeners() {
+      const signalUrlChanged = () => {
+        window.dispatchEvent(new Event("recall:urlchange"));
+      };
+
+      const originalPushState = history.pushState;
+      history.pushState = function () {
+        const result = originalPushState.apply(this, arguments);
+        signalUrlChanged();
+        return result;
+      };
+
+      const originalReplaceState = history.replaceState;
+      history.replaceState = function () {
+        const result = originalReplaceState.apply(this, arguments);
+        signalUrlChanged();
+        return result;
+      };
+
+      window.addEventListener("popstate", signalUrlChanged);
+      window.addEventListener("recall:urlchange", () => {
+        const newUrlKey = StorageService.getUrlKey();
+        if (newUrlKey === this._lastKnownUrlKey) return;
+        this._restoredKeys.clear();
+        this._lastKnownUrlKey = newUrlKey;
+        setTimeout(
+          () => this.restoreStickers(),
+          Config.INITIAL_LOAD_DELAY_MS
+        );
       });
     },
 
