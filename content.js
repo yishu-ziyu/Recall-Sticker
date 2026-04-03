@@ -9,6 +9,8 @@
     },
     SELECTORS: {
       TOGGLE_BTN: "#recall-toggle-btn",
+      PANEL_BTN: "#recall-panel-btn",
+      FLOAT_CONTAINER: "#recall-float-container",
       DASHBOARD: "#recall-dashboard",
       COUNT: "#recall-count",
       TOGGLE_MODE: "#recall-toggle-mode",
@@ -73,10 +75,28 @@
     },
 
     initToggleButton() {
-      const btn = document.createElement("button");
-      btn.id = "recall-toggle-btn";
-      btn.innerText = "🖍️";
-      document.body.appendChild(btn);
+      const container = document.createElement("div");
+      container.id = "recall-float-container";
+      container.className = "recall-float-hidden";
+
+      const stickerBtn = document.createElement("button");
+      stickerBtn.id = "recall-toggle-btn";
+      stickerBtn.innerText = "🖍️";
+      stickerBtn.title = "创建贴纸";
+
+      const panelBtn = document.createElement("button");
+      panelBtn.id = "recall-panel-btn";
+      panelBtn.innerText = "📋";
+      panelBtn.title = "打开复习面板";
+
+      container.appendChild(stickerBtn);
+      container.appendChild(panelBtn);
+      document.body.appendChild(container);
+    },
+
+    openSidePanel() {
+      chrome.sidePanel.open({ windowId: chrome.windows.WINDOW_ID_CURRENT })
+        .catch(err => console.error("Failed to open side panel:", err));
     },
 
     initDashboard() {
@@ -182,14 +202,24 @@
         });
       }
 
+      const panelBtn = document.querySelector(Config.SELECTORS.PANEL_BTN);
+      if (panelBtn) {
+        panelBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          DOMService.openSidePanel();
+        });
+      }
+
       document.addEventListener("mousedown", (e) => {
         if (this._btnTimeout) clearTimeout(this._btnTimeout);
         if (
           e.target.id !== "recall-toggle-btn" &&
-          !e.target.closest("#recall-dashboard")
+          e.target.id !== "recall-panel-btn" &&
+          !e.target.closest("#recall-dashboard") &&
+          !e.target.closest(Config.SELECTORS.FLOAT_CONTAINER)
         ) {
-          const btn = document.querySelector(Config.SELECTORS.TOGGLE_BTN);
-          if (btn) btn.style.display = "none";
+          const container = document.querySelector(Config.SELECTORS.FLOAT_CONTAINER);
+          if (container) container.style.display = "none";
         }
       });
     },
@@ -202,10 +232,12 @@
 
         const selection = window.getSelection();
         const selectedText = selection.toString().trim();
-        if (selectedText.length === 0 || e.target.id === "recall-toggle-btn") {
-          if (e.target.id !== "recall-toggle-btn") {
-            const btn = document.querySelector(Config.SELECTORS.TOGGLE_BTN);
-            if (btn) btn.style.display = "none";
+        const isClickingFloatBtn = e.target.closest(Config.SELECTORS.FLOAT_CONTAINER);
+        
+        if (selectedText.length === 0 || isClickingFloatBtn) {
+          if (!isClickingFloatBtn) {
+            const container = document.querySelector(Config.SELECTORS.FLOAT_CONTAINER);
+            if (container) container.style.display = "none";
           }
           return;
         }
@@ -216,12 +248,12 @@
 
           const selectedRange = validSelection.getRangeAt(0);
           const rect = selectedRange.getBoundingClientRect();
-          const top = rect.top + window.scrollY - 45;
-          const left = rect.left + window.scrollX + rect.width / 2 - 20;
-          const btn = document.querySelector(Config.SELECTORS.TOGGLE_BTN);
-          btn.style.top = `${top}px`;
-          btn.style.left = `${left}px`;
-          btn.style.display = "block";
+          const top = rect.top + window.scrollY - 55;
+          const left = rect.left + window.scrollWidth / 2 - 30;
+          const container = document.querySelector(Config.SELECTORS.FLOAT_CONTAINER);
+          container.style.top = `${top}px`;
+          container.style.left = `${left}px`;
+          container.style.display = "flex";
         }, 200);
       });
     },
@@ -236,48 +268,31 @@
     },
 
     findRangeByContext(text, prefix, suffix) {
-      if (!text) return null;
-      
       const walker = document.createTreeWalker(
         document.body,
         NodeFilter.SHOW_TEXT
       );
       let node;
-      
+      const prefixLength = prefix ? prefix.length : 0;
+      const suffixLength = suffix ? suffix.length : 0;
+
       while ((node = walker.nextNode())) {
         const nodeText = node.textContent;
-        let searchIndex = 0;
-        let textIndex;
+        const textIndex = nodeText.indexOf(text);
 
-        // Find all occurrences in this node
-        while ((textIndex = nodeText.indexOf(text, searchIndex)) !== -1) {
-          searchIndex = textIndex + 1;
+        if (textIndex !== -1) {
+          const actualPrefix = nodeText.substring(Math.max(0, textIndex - prefixLength), textIndex);
+          const actualSuffix = nodeText.substring(textIndex + text.length, Math.min(nodeText.length, textIndex + text.length + suffixLength));
 
-          // 1. Verify Prefix
-          const rangeBefore = document.createRange();
-          rangeBefore.selectNodeContents(document.body);
-          rangeBefore.setEnd(node, textIndex);
-          const textBefore = rangeBefore.toString();
+          const isPrefixMatch = !prefix || actualPrefix.endsWith(prefix.trim()) || prefix.length < 5;
+          const isSuffixMatch = !suffix || actualSuffix.startsWith(suffix.trim()) || suffix.length < 5;
 
-          if (!textBefore.endsWith(prefix)) {
-            continue;
+          if (isPrefixMatch && isSuffixMatch) {
+            const range = document.createRange();
+            range.setStart(node, textIndex);
+            range.setEnd(node, textIndex + text.length);
+            return range;
           }
-
-          // 2. Verify Suffix
-          const rangeAfter = document.createRange();
-          rangeAfter.selectNodeContents(document.body);
-          rangeAfter.setStart(node, textIndex + text.length);
-          const textAfter = rangeAfter.toString();
-
-          if (!textAfter.startsWith(suffix)) {
-            continue;
-          }
-
-          // 3. Match Found
-          const range = document.createRange();
-          range.setStart(node, textIndex);
-          range.setEnd(node, textIndex + text.length);
-          return range;
         }
       }
       return null;
@@ -458,8 +473,8 @@
         this.bindStickerInteractions(wrapper, text, prefix, suffix);
         window.getSelection().removeAllRanges();
         
-        const toggleBtn = document.querySelector(Config.SELECTORS.TOGGLE_BTN);
-        if (toggleBtn) toggleBtn.style.display = "none";
+        const container = document.querySelector(Config.SELECTORS.FLOAT_CONTAINER);
+        if (container) container.style.display = "none";
 
         // Generate Anki-style Smart Context (Full Sentence with {{c1::...}})
         const fullContext = DOMService.getExportContext(wrapper);
@@ -506,7 +521,17 @@
       StorageService.getStickers((stickers) => {
         if (!stickers || stickers.length === 0) return;
 
+        const existingStickers = document.querySelectorAll(
+          `.${Config.STICKER_CLASSES.HIDDEN}, .${Config.STICKER_CLASSES.REVEALED}`
+        );
+        const existingTexts = new Set();
+        existingStickers.forEach(el => {
+          existingTexts.add(el.dataset.stickerText);
+        });
+
         stickers.forEach((data) => {
+          if (existingTexts.has(data.text)) return;
+
           const range = DOMService.findRangeByContext(
             data.text,
             data.prefix,
@@ -522,6 +547,7 @@
               data.prefix,
               data.suffix
             );
+            existingTexts.add(data.text);
             DOMService.updateDashboardCount();
           } catch (err) {
             console.warn("Recall Sticker: Restore error", err);
