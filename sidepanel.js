@@ -49,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderCard(sticker) {
     const card = document.createElement('div');
     card.className = 'sticker-card';
+    card.dataset.stickerId = `${sticker.url}||${sticker.text}`;
 
     // Try to parse hostname for display
     let hostname = 'Unknown Source';
@@ -59,15 +60,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const shortContext = (sticker.prefix || '').slice(-15) + '...';
 
     card.innerHTML = `
-      <div class="card-source">
-        <span class="card-source-text">${hostname}</span>
-        <span>•</span>
-        <span>${new Date(sticker.timestamp).toLocaleDateString()}</span>
+      <div class="card-header">
+        <div class="card-source">
+          <span class="card-source-text">${hostname}</span>
+          <span>•</span>
+          <span>${new Date(sticker.timestamp).toLocaleDateString()}</span>
+        </div>
+        <button class="card-delete-btn" title="删除此贴纸">🗑️</button>
       </div>
       <div class="card-context">
         ${renderStickerContent(sticker)}
       </div>
     `;
+
+    // Delete button handler
+    const deleteBtn = card.querySelector('.card-delete-btn');
+    deleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteSticker(sticker, card);
+    });
 
     // Internal Reveal Logic
     const clozeSpans = card.querySelectorAll('.card-cloze');
@@ -84,6 +95,44 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     stickerList.appendChild(card);
+  }
+
+  function deleteSticker(sticker, cardElement) {
+    if (!confirm('确定要删除这个贴纸吗？')) return;
+
+    const url = sticker.url;
+    chrome.storage.local.get([url], (result) => {
+      let stickers = result[url] || [];
+      const newStickers = stickers.filter(s =>
+        !(s.text === sticker.text && s.prefix === sticker.prefix && s.suffix === sticker.suffix)
+      );
+
+      chrome.storage.local.set({ [url]: newStickers }, () => {
+        cardElement.remove();
+        updateCount();
+      });
+    });
+  }
+
+  function updateCount() {
+    chrome.storage.local.get(null, (items) => {
+      let totalCount = 0;
+      for (const [url, stickers] of Object.entries(items)) {
+        if (Array.isArray(stickers)) {
+          totalCount += stickers.length;
+        }
+      }
+      countSpan.textContent = totalCount;
+      
+      if (totalCount === 0) {
+        stickerList.innerHTML = `
+          <div class="empty-state">
+            <p>No stickers found.</p>
+            <p>Go collect some knowledge! 🖍️</p>
+          </div>
+        `;
+      }
+    });
   }
 
   function renderStickerContent(sticker) {
