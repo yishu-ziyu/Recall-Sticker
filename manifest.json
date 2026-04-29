@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Recall Sticker MVP",
-  "version": "1.0",
-  "description": "选中文字，点击浮标，生成遮挡贴纸。",
+  "name": "Recall Sticker",
+  "version": "1.1.0",
+  "description": "选中文字生成遮挡贴纸，并在侧边栏中搜索、打标签和复习。",
   "permissions": [
     "activeTab",
     "storage",
@@ -16,7 +16,19 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "Open Review Center"
+    "default_title": "Open Recall Sticker",
+    "default_icon": {
+      "16": "images/icon16.png",
+      "32": "images/icon32.png",
+      "48": "images/icon48.png",
+      "128": "images/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "images/icon16.png",
+    "32": "images/icon32.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
   },
   "content_scripts": [
     {

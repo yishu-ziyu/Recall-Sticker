@@ -3,20 +3,36 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Recall Review Center</title>
+    <title>Recall Sticker</title>
     <link rel="stylesheet" href="sidepanel.css" />
   </head>
   <body>
     <header>
-      <h1>Recall Review</h1>
+      <h1>Recall Sticker</h1>
       <div class="header-actions">
         <button id="toggle-reveal-btn" title="Reveal All Answers">👁️</button>
         <button id="refresh-btn" title="Refresh List" aria-label="Refresh Stickers">🔄</button>
+        <button id="tag-manage-btn" title="Manage Tags">🏷️</button>
+        <button id="multi-select-btn" title="Multi-select Mode">☑️</button>
       </div>
     </header>
 
     <div id="stats-bar">
       <span id="sticker-count">0</span> stickers collected
+    </div>
+
+    <div id="filter-bar">
+      <input type="text" id="search-input" placeholder="Search stickers..." />
+      <select id="tag-filter">
+        <option value="">全部标签</option>
+      </select>
+    </div>
+
+    <div id="bulk-actions">
+      <span id="selected-count">0</span> selected
+      <button id="bulk-add-tag-btn">🏷️ 添加标签</button>
+      <button id="bulk-delete-btn">🗑️ 删除</button>
+      <button id="cancel-multi-select-btn">取消</button>
     </div>
 
     <main id="sticker-list">
@@ -26,6 +42,37 @@
         <p>Select text on web pages to start collecting!</p>
       </div>
     </main>
+
+    <!-- Tag Management Modal -->
+    <div id="tag-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>标签管理</h2>
+          <button class="modal-close">✕</button>
+        </div>
+        <div id="tag-list"></div>
+        <div class="modal-footer">
+          <input type="text" id="new-tag-name" placeholder="标签名称" />
+          <input type="color" id="new-tag-color" value="#4A90D9" />
+          <button id="create-tag-btn">创建标签</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tag Assignment Modal -->
+    <div id="assign-tag-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="assign-tag-title">分配标签</h2>
+          <button class="modal-close">✕</button>
+        </div>
+        <div id="assign-tag-list"></div>
+        <div class="modal-footer">
+          <button id="assign-tag-cancel-btn">取消</button>
+          <button id="assign-tag-save-btn">保存</button>
+        </div>
+      </div>
+    </div>
 
     <script src="sidepanel.js"></script>
   </body>

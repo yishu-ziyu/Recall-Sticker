@@ -95,8 +95,12 @@
     },
 
     openSidePanel() {
-      chrome.sidePanel.open({ windowId: chrome.windows.WINDOW_ID_CURRENT })
-        .catch(err => console.error("Failed to open side panel:", err));
+      chrome.runtime.sendMessage({ type: "OPEN_RECALL_SIDE_PANEL" }, () => {
+        if (chrome.runtime.lastError) {
+          console.error("Failed to request side panel:", chrome.runtime.lastError);
+          DOMService.showToast("⚠️ 复习面板打开失败，请点击扩展图标重试", "error");
+        }
+      });
     },
 
     initDashboard() {
