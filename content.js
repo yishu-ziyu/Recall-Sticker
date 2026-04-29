@@ -19,6 +19,10 @@
     },
     LOAD_DELAY_MS: 1000,
     EXPORT_FILENAME_PREFIX: "recall-export-full-",
+    FLOAT_GAP_PX: 10,
+    FLOAT_MARGIN_PX: 8,
+    FLOAT_FALLBACK_WIDTH: 96,
+    FLOAT_FALLBACK_HEIGHT: 44,
   };
 
   const StorageService = {
@@ -92,6 +96,78 @@
       container.appendChild(stickerBtn);
       container.appendChild(panelBtn);
       document.body.appendChild(container);
+    },
+
+    getSelectionRect(range) {
+      const rect = range.getBoundingClientRect();
+      if (this.isUsableRect(rect)) return rect;
+
+      return Array.from(range.getClientRects()).find((clientRect) =>
+        this.isUsableRect(clientRect)
+      );
+    },
+
+    isUsableRect(rect) {
+      return (
+        rect &&
+        Number.isFinite(rect.top) &&
+        Number.isFinite(rect.left) &&
+        (rect.width > 0 || rect.height > 0)
+      );
+    },
+
+    clamp(value, min, max) {
+      return Math.min(Math.max(value, min), Math.max(min, max));
+    },
+
+    showFloatContainerNearRange(range) {
+      const container = document.querySelector(Config.SELECTORS.FLOAT_CONTAINER);
+      const rect = this.getSelectionRect(range);
+      if (!container || !rect) return;
+
+      const previousAnimation = container.style.animation;
+      container.style.visibility = "hidden";
+      container.style.animation = "none";
+      container.style.display = "flex";
+
+      const containerRect = container.getBoundingClientRect();
+      const containerWidth =
+        containerRect.width || Config.FLOAT_FALLBACK_WIDTH;
+      const containerHeight =
+        containerRect.height || Config.FLOAT_FALLBACK_HEIGHT;
+      const viewportWidth =
+        window.innerWidth || document.documentElement.clientWidth;
+      const viewportHeight =
+        window.innerHeight || document.documentElement.clientHeight;
+
+      const desiredLeft =
+        rect.left + rect.width / 2 - containerWidth / 2;
+      const maxLeft =
+        viewportWidth - containerWidth - Config.FLOAT_MARGIN_PX;
+      const left = this.clamp(
+        desiredLeft,
+        Config.FLOAT_MARGIN_PX,
+        maxLeft
+      );
+
+      const topAbove =
+        rect.top - containerHeight - Config.FLOAT_GAP_PX;
+      const topBelow = rect.bottom + Config.FLOAT_GAP_PX;
+      const maxTop =
+        viewportHeight - containerHeight - Config.FLOAT_MARGIN_PX;
+      const top =
+        topAbove >= Config.FLOAT_MARGIN_PX
+          ? topAbove
+          : topBelow + containerHeight <=
+              viewportHeight - Config.FLOAT_MARGIN_PX
+            ? topBelow
+            : this.clamp(topBelow, Config.FLOAT_MARGIN_PX, maxTop);
+
+      container.style.left = `${left + window.scrollX}px`;
+      container.style.top = `${top + window.scrollY}px`;
+      container.style.animation = previousAnimation;
+      container.style.visibility = "";
+      container.style.display = "flex";
     },
 
     openSidePanel() {
@@ -250,14 +326,10 @@
           const validSelection = window.getSelection();
           if (validSelection.toString().trim().length === 0) return;
 
+          if (validSelection.rangeCount === 0) return;
+
           const selectedRange = validSelection.getRangeAt(0);
-          const rect = selectedRange.getBoundingClientRect();
-          const top = rect.top + window.scrollY - 55;
-          const left = rect.left + window.scrollWidth / 2 - 30;
-          const container = document.querySelector(Config.SELECTORS.FLOAT_CONTAINER);
-          container.style.top = `${top}px`;
-          container.style.left = `${left}px`;
-          container.style.display = "flex";
+          this.showFloatContainerNearRange(selectedRange);
         }, 200);
       });
     },
