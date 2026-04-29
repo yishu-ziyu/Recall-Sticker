@@ -334,44 +334,122 @@
       });
     },
 
-    wrapRange(range) {
+    createStickerWrapper(text) {
       const wrapper = document.createElement("span");
       wrapper.classList.add(Config.STICKER_CLASSES.HIDDEN);
       wrapper.setAttribute("tabindex", "0"); // Enable keyboard focus
-      wrapper.dataset.stickerText = range.toString();
-      range.surroundContents(wrapper);
+      wrapper.dataset.stickerText = text;
+      return wrapper;
+    },
+
+    wrapRange(range, text = range.toString().trim()) {
+      const wrapper = this.createStickerWrapper(text);
+
+      try {
+        range.surroundContents(wrapper);
+      } catch (error) {
+        const fragment = range.extractContents();
+        if (!fragment.textContent.trim()) throw error;
+        wrapper.appendChild(fragment);
+        range.insertNode(wrapper);
+      }
+
       return wrapper;
     },
 
     findRangeByContext(text, prefix, suffix) {
-      const walker = document.createTreeWalker(
-        document.body,
-        NodeFilter.SHOW_TEXT
-      );
-      let node;
+      const textNodes = this.getSearchableTextNodes();
+      const fullText = textNodes.map(({ textContent }) => textContent).join("");
       const prefixLength = prefix ? prefix.length : 0;
       const suffixLength = suffix ? suffix.length : 0;
+      let searchIndex = fullText.indexOf(text);
 
-      while ((node = walker.nextNode())) {
-        const nodeText = node.textContent;
-        const textIndex = nodeText.indexOf(text);
+      while (searchIndex !== -1) {
+        const actualPrefix = fullText.substring(
+          Math.max(0, searchIndex - prefixLength),
+          searchIndex
+        );
+        const actualSuffix = fullText.substring(
+          searchIndex + text.length,
+          Math.min(fullText.length, searchIndex + text.length + suffixLength)
+        );
 
-        if (textIndex !== -1) {
-          const actualPrefix = nodeText.substring(Math.max(0, textIndex - prefixLength), textIndex);
-          const actualSuffix = nodeText.substring(textIndex + text.length, Math.min(nodeText.length, textIndex + text.length + suffixLength));
+        const isPrefixMatch =
+          !prefix || actualPrefix.endsWith(prefix.trim()) || prefix.length < 5;
+        const isSuffixMatch =
+          !suffix || actualSuffix.startsWith(suffix.trim()) || suffix.length < 5;
 
-          const isPrefixMatch = !prefix || actualPrefix.endsWith(prefix.trim()) || prefix.length < 5;
-          const isSuffixMatch = !suffix || actualSuffix.startsWith(suffix.trim()) || suffix.length < 5;
-
-          if (isPrefixMatch && isSuffixMatch) {
+        if (isPrefixMatch && isSuffixMatch) {
+          const start = this.findTextPosition(textNodes, searchIndex);
+          const end = this.findTextPosition(textNodes, searchIndex + text.length);
+          if (start && end) {
             const range = document.createRange();
-            range.setStart(node, textIndex);
-            range.setEnd(node, textIndex + text.length);
+            range.setStart(start.node, start.offset);
+            range.setEnd(end.node, end.offset);
             return range;
           }
         }
+
+        searchIndex = fullText.indexOf(text, searchIndex + text.length);
       }
+
       return null;
+    },
+
+    getSearchableTextNodes() {
+      const walker = document.createTreeWalker(
+        document.body,
+        NodeFilter.SHOW_TEXT,
+        {
+          acceptNode(node) {
+            if (!node.textContent) return NodeFilter.FILTER_REJECT;
+            const parent = node.parentElement;
+            if (!parent) return NodeFilter.FILTER_REJECT;
+            if (
+              parent.closest(
+                [
+                  Config.SELECTORS.FLOAT_CONTAINER,
+                  Config.SELECTORS.DASHBOARD,
+                  ".recall-toast",
+                  "script",
+                  "style",
+                  "noscript",
+                ].join(",")
+              )
+            ) {
+              return NodeFilter.FILTER_REJECT;
+            }
+            return NodeFilter.FILTER_ACCEPT;
+          },
+        }
+      );
+
+      const textNodes = [];
+      let node;
+      while ((node = walker.nextNode())) {
+        textNodes.push({
+          node,
+          textContent: node.textContent,
+        });
+      }
+      return textNodes;
+    },
+
+    findTextPosition(textNodes, textIndex) {
+      let remaining = textIndex;
+      for (const { node, textContent } of textNodes) {
+        if (remaining <= textContent.length) {
+          return { node, offset: remaining };
+        }
+        remaining -= textContent.length;
+      }
+
+      const lastEntry = textNodes[textNodes.length - 1];
+      if (!lastEntry) return null;
+      return {
+        node: lastEntry.node,
+        offset: lastEntry.textContent.length,
+      };
     },
 
     buildClozeText(block, targetSticker, stickerText) {
@@ -528,7 +606,7 @@
       if (text.length === 0) return;
 
       try {
-        const wrapper = DOMService.wrapRange(range);
+        const wrapper = DOMService.wrapRange(range, text);
         
         // --- Enhanced Context Capture ---
         // Capture context relative to the block to span across tags (e.g. <b>, <i>)
@@ -559,7 +637,7 @@
         DOMService.updateDashboardCount();
       } catch (err) {
         console.warn("Recall Sticker: Complex implementation error", err);
-        DOMService.showToast("⚠️ 仅支持在同一段落内创建贴纸 (跨节点选择暂不支持)", "error");
+        DOMService.showToast("⚠️ 贴纸创建失败，请尝试缩短选区或避开复杂组件", "error");
       }
     },
 
@@ -616,7 +694,7 @@
           if (!range) return;
 
           try {
-            const wrapper = DOMService.wrapRange(range);
+            const wrapper = DOMService.wrapRange(range, data.text);
             this.bindStickerInteractions(
               wrapper,
               data.text,
